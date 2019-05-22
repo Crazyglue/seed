@@ -1,8 +1,8 @@
 import React from 'react';
 import { Table } from 'react-bootstrap';
 
-const sortOrders = ([ priceA ], [ priceB ]) => {
-    const factor = this === 'asc' ? -1 : 1
+const sortOrders = order => ([ priceA ], [ priceB ]) => {
+    const factor = order === 'asc' ? -1 : 1
     const numA = Number(priceA);
     const numB = Number(priceB);
     if (numA < numB) return -1 * factor;
@@ -12,8 +12,7 @@ const sortOrders = ([ priceA ], [ priceB ]) => {
 
 function OrderList(props) {
     const { orders = {}, sort = 'asc' } = props;
-
-    const trimmedOrders = Object.entries(orders).filter(([ , amount ]) => amount > 0).sort(sortOrders.bind(sort));
+    const trimmedOrders = Object.entries(orders).filter(([ , amount ]) => amount > 0).sort(sortOrders(sort));
 
     const orderList = trimmedOrders.map(([ price, amount ]) => {
         return (

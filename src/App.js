@@ -2,6 +2,7 @@ import React from "react";
 import "./App.css";
 import OrderList from './components/OrderList';
 import Websocket from "react-websocket";
+import { Row, Col } from 'react-bootstrap';
 
 import parseL2Update from './libs/parseL2Update';
 
@@ -90,22 +91,24 @@ class App extends React.Component {
 
 
                 <div className='App-content'>
-                    <div className='row'>
-                        <h1>Sell</h1>
-                        <OrderList
-                            className='col-sm-12'
-                            sort='desc'
-                            orders={this.state.sell}
-                        ></OrderList>
+                    <Row>
+                        <Col xs='6'>
+                            <h1>Sell</h1>
+                            <OrderList
+                                className='col-sm-12'
+                                sort='desc'
+                                orders={this.state.sell}
+                            ></OrderList>
+                        </Col>
 
-                        <hr />
-
-                        <h1>Buy</h1>
-                        <OrderList
-                            sort='asc'
-                            orders={this.state.buy}
-                        ></OrderList>
-                    </div>
+                        <Col xs='6'>
+                            <h1>Buy</h1>
+                            <OrderList
+                                sort='asc'
+                                orders={this.state.buy}
+                            ></OrderList>
+                        </Col>
+                    </Row>
                 </div>
             </div>
         );
