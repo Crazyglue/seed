@@ -12,18 +12,20 @@ class App extends React.Component {
         this.state = {
             sell: {},
             buy: {},
-            lastUpdate: new Date().getTime()
+            lastUpdate: new Date().getTime(),
+            currentTime: new Date().getTime()
         }
     }
 
-    shouldComponentUpdate() {
-        const currentTime = new Date().getTime();
-        const shouldUpdate = currentTime - 1000 >= this.state.lastUpdate;
+    shouldComponentUpdate() {        
+        const shouldUpdate = this.state.currentTime - this.state.lastUpdate >= 4000;
+
         if (shouldUpdate) {
-            console.log('updating...')
+            this.setState({
+                lastUpdate: this.state.currentTime
+            })
         }
 
-        this.state.lastUpdate = currentTime;
         return shouldUpdate
     }
 
@@ -35,6 +37,7 @@ class App extends React.Component {
             const update = parseL2Update(data);
 
             this.setState({
+                currentTime: new Date().getTime(),
                 sell: {
                     ...this.state.sell,
                     ...update.sell
@@ -45,7 +48,6 @@ class App extends React.Component {
                 }
             })
 
-            // console.log(data);
         } else if (data.type === 'snapshot') {
             console.log('snapshot', data);
         }
@@ -88,20 +90,19 @@ class App extends React.Component {
 
 
                 <div className='App-content'>
-                    <button onClick={this.onClose.bind(this)}>Close</button>
                     <div className='row'>
+                        <h1>Sell</h1>
                         <OrderList
                             className='col-sm-12'
-                            direction='asc'
+                            sort='desc'
                             orders={this.state.sell}
                         ></OrderList>
 
-                        <div>
-                            something
-                        </div>
+                        <hr />
 
+                        <h1>Buy</h1>
                         <OrderList
-                            direction='desc'
+                            sort='asc'
                             orders={this.state.buy}
                         ></OrderList>
                     </div>
