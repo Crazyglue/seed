@@ -1,5 +1,7 @@
-export default ({ changes }) => {
-    return changes.reduce((update, [ side, price, size ]) => {
+import { CoinbaseUpdate, Change } from "../models/coinbase";
+
+export default ({ changes }: CoinbaseUpdate) => {
+    return changes.reduce((update, [ side, price, size ]: Change) => {
         return {
             ...update,
             [side]: {
