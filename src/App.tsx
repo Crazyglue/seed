@@ -5,7 +5,7 @@ import { Row, Col } from 'react-bootstrap';
 import "./App.css";
 import OrderList from './components/OrderList';
 import parseL2Update from './libs/parseL2Update';
-import { CoinbaseUpdate } from "./models/coinbase";
+import { CoinbaseUpdate, CoinbaseBase, CoinbaseSnapshot, SnapshotChange } from "./models/coinbase";
 import sortOrders, { SortDirection } from "./libs/sortOrders";
 
 interface IAppState {
@@ -30,7 +30,7 @@ class App extends React.Component<IAppState, any> {
     }
 
     shouldComponentUpdate() {
-        const shouldUpdate = this.state.currentTime - this.state.lastUpdate >= 500;
+        const shouldUpdate = this.state.currentTime - this.state.lastUpdate >= 1000;
 
         if (shouldUpdate) {
             this.setState({
@@ -54,11 +54,11 @@ class App extends React.Component<IAppState, any> {
     }
 
     handleData(updateString: string) {
-        const data: CoinbaseUpdate = JSON.parse(updateString)
+        const data: CoinbaseBase = JSON.parse(updateString)
         if (data.type === 'error') {
             console.log('error', data)
         } else if (data.type === 'l2update') {
-            const update = parseL2Update(data);
+            const update = parseL2Update(data as CoinbaseUpdate);
 
             const sellUpdate = {
                 ...this.state.sell,
@@ -70,6 +70,8 @@ class App extends React.Component<IAppState, any> {
                 ...update.buy
             };
 
+            // Not crazy with having to call filterUpdates on every update that comes in
+            // a queue might work better, and then every `n` milliseconds process the queue
             this.setState({
                 currentTime: new Date().getTime(),
                 sell: this.filterUpdates(sellUpdate, 'desc'),
@@ -77,7 +79,23 @@ class App extends React.Component<IAppState, any> {
             })
 
         } else if (data.type === 'snapshot') {
-            console.log('snapshot', data);
+            // Initial state of the L2Channel, only first 50 records
+            const reducer = (updates: SnapshotChange[]) => updates.slice(0, 50).reduce((total, [ price, amount ]) => {
+                return {
+                    ...total,
+                    [price]: amount
+                }
+            }, {})
+
+            const { asks, bids } = data as CoinbaseSnapshot;
+            const sell = reducer(asks)
+            const buy = reducer(bids)
+
+            this.setState({
+                sell,
+                buy,
+                currentTime: new Date().getTime()
+            })
         }
     }
 
