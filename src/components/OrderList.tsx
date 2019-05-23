@@ -24,7 +24,7 @@ function OrderList(props: IOrderProps) {
             <thead>
                 <tr>
                     <th>Price (USD)</th>
-                    <th>Amount</th>
+                    <th>Amount (BTC)</th>
                 </tr>
             </thead>
             <tbody className="OrderList__container">
