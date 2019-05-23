@@ -124,6 +124,7 @@ class App extends React.Component<IAppState, any> {
         const firstSell = Object.keys(this.state.sell)[0] || 0;
         const firstBuy = Object.keys(this.state.buy)[0] || 0;
         const difference = Number(firstSell) - Number(firstBuy)
+        const midpointPrice = Number(firstSell) + (difference / 2);
 
         return (
             <Row className="App">
@@ -141,9 +142,9 @@ class App extends React.Component<IAppState, any> {
                 <Col xs='12' className='App-content'>
                     <Row>
                         <Col sm='12'>
-                            <h2>Spread</h2>
+                            <h2>Midpoint</h2>
                             <hr />
-                            { difference.toLocaleString(window.navigator.language, { style: 'currency', currency: 'USD' }) }
+                            { midpointPrice.toLocaleString(window.navigator.language, { style: 'currency', currency: 'USD' }) }
                         </Col>
                     </Row>
                     <Row>
