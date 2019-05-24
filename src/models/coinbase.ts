@@ -2,8 +2,8 @@ export type Side = 'buy' | 'sell';
 export type Change = [ Side, string, string ];
 
 export interface CoinbaseBase {
-        type: string;
-        product_id: string;
+    type: string;
+    product_id: string;
 }
 
 export interface CoinbaseUpdate extends CoinbaseBase {

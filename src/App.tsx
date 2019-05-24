@@ -8,13 +8,12 @@ import parseL2Update from './libs/parseL2Update';
 import { CoinbaseUpdate, CoinbaseBase, CoinbaseSnapshot, SnapshotChange } from "./models/coinbase";
 import sortOrders, { SortDirection } from "./libs/sortOrders";
 
-interface MarketSideState {
-    [amount: string]: string;
+interface ExchangeData {
+    sell: SnapshotChange[],
+    buy: SnapshotChange[],
 }
 
-interface IAppState {
-    sell: MarketSideState,
-    buy: MarketSideState,
+interface IAppState extends ExchangeData {
     lastUpdate: Date;
     currentTime: Date
 }
@@ -26,15 +25,15 @@ class App extends React.Component<IAppState, any> {
         super(props);
 
         this.state = {
-            sell: {},
-            buy: {},
+            sell: [],
+            buy: [],
             lastUpdate: new Date().getTime(),
             currentTime: new Date().getTime()
         }
     }
 
     shouldComponentUpdate() {
-        const shouldUpdate = this.state.currentTime - this.state.lastUpdate >= 1000;
+        const shouldUpdate = this.state.currentTime - this.state.lastUpdate >= 100;
 
         if (shouldUpdate) {
             this.setState({
@@ -44,14 +43,26 @@ class App extends React.Component<IAppState, any> {
 
         return shouldUpdate
     }
-
-    filterUpdates(updates: MarketSideState, direction: SortDirection) {
-        const slicedUpdates = Object.entries(updates)
-            .filter(([ , amount ]) => Number(amount) > 0)
+    filterUpdates(updates: SnapshotChange[], direction: SortDirection) {
+        return updates.filter(([ , amount ]) => Number(amount) > 0)
             .sort(sortOrders(direction))
-            .slice(0, 15)
+            .slice(0, 25)
+    }
 
-        return slicedUpdates.reduce((fullUpdate, [ price, amount ]) => ({ ...fullUpdate, [price]: amount }), {})
+    replaceExisting (existingUpdates: SnapshotChange[], [ amount, price ]: SnapshotChange): SnapshotChange[] {
+        // Delete the existing update-amount if the next one sets it
+        const previousIndex = existingUpdates.findIndex(([ existingAmount ]) => existingAmount === amount)
+        if (previousIndex > -1) {
+            existingUpdates.splice(previousIndex, 1)
+        }
+
+        // Insert the next update into the array
+        const insertIndex = existingUpdates.findIndex(([ existingAmount ]) => Number(existingAmount) > Number(amount));
+        if (insertIndex > -1) {
+            existingUpdates.splice(insertIndex, 0, [amount, price]);
+        }
+
+        return existingUpdates
     }
 
     handleData(updateString: string) {
@@ -61,42 +72,19 @@ class App extends React.Component<IAppState, any> {
         } else if (data.type === 'l2update') {
             const update = parseL2Update(data as CoinbaseUpdate);
 
-            const sellUpdate = {
-                ...this.state.sell,
-                ...update.sell
-            };
-
-            const buyUpdate = {
-                ...this.state.buy,
-                ...update.buy
-            };
-
-            // Not crazy with having to call filterUpdates on every update that comes in
-            // a queue might work better, and then every `n` milliseconds process the queue
+            // TODO: Decrement amounts in `buy` from all the latest sales
             this.setState({
                 currentTime: new Date().getTime(),
-                sell: this.filterUpdates(sellUpdate, 'desc'),//(this.state.sell),
-                buy: this.filterUpdates(buyUpdate, 'asc'),//(this.state.buy)
+                sell: this.filterUpdates(update.sell.reduce(this.replaceExisting, [ ...this.state.sell ]), 'desc'),
+                buy: this.filterUpdates(update.buy.reduce(this.replaceExisting, [ ...this.state.buy ]), 'asc')
             })
 
         } else if (data.type === 'snapshot') {
-            // Initial state of the L2Channel, only first 50 records
-            const reducer = (updates: SnapshotChange[]) => updates.slice(0, 15).reduce((total, [ price, amount ]) => {
-                return {
-                    ...total,
-                    [price]: amount
-                }
-            }, {})
-
             const { asks, bids } = data as CoinbaseSnapshot;
-            const sell = reducer(asks)
-            const buy = reducer(bids)
-
-            console.log('buy', buy);
 
             this.setState({
-                sell,
-                buy,
+                sell: this.filterUpdates(asks, 'desc'),
+                buy: this.filterUpdates(bids, 'asc'),
                 currentTime: new Date().getTime()
             })
         }
@@ -124,12 +112,14 @@ class App extends React.Component<IAppState, any> {
     }
 
     render() {
-        const { sell, buy } = this.state;
-        console.log('sell', sell)
-        const [ , firstSell = 0 ] = Object.keys(sell)
-        const [ , firstBuy = 0 ] = Object.keys(buy)
+        const { sell, buy }: ExchangeData = this.state as IAppState;
+        const [ firstSell ] = sell[0] || [ , '0']
+        const [ firstBuy ] = buy[0] || [ , '0']
         const difference = Number(firstSell) - Number(firstBuy)
-        const midpointPrice = Number(firstSell) + (difference / 2);
+        const midpointPrice = Number(firstBuy) + (difference / 2);
+
+        // TODO: Handle this better
+        document.title = 'BTC-USD ' + Number(firstSell).toLocaleString(window.navigator.language, { style: 'currency', currency: 'USD' })
 
         return (
             <Row className="App">
@@ -150,7 +140,7 @@ class App extends React.Component<IAppState, any> {
                             <h2>Midpoint</h2>
                             { midpointPrice.toLocaleString(window.navigator.language, { style: 'currency', currency: 'USD' }) }
                             <hr />
-                            <h4>Difference</h4>
+                            <h4>Spread</h4>
                             { difference.toLocaleString(window.navigator.language, { style: 'currency', currency: 'USD' }) }
                         </Col>
                     </Row>
