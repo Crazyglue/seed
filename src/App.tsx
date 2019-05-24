@@ -8,9 +8,13 @@ import parseL2Update from './libs/parseL2Update';
 import { CoinbaseUpdate, CoinbaseBase, CoinbaseSnapshot, SnapshotChange } from "./models/coinbase";
 import sortOrders, { SortDirection } from "./libs/sortOrders";
 
+interface MarketSideState {
+    [amount: string]: string;
+}
+
 interface IAppState {
-    sell: object,
-    buy: object,
+    sell: MarketSideState,
+    buy: MarketSideState,
     lastUpdate: Date;
     currentTime: Date
 }
@@ -41,16 +45,13 @@ class App extends React.Component<IAppState, any> {
         return shouldUpdate
     }
 
-    filterUpdates(updates: object, direction: SortDirection) {
-        return Object.entries(updates)
+    filterUpdates(updates: MarketSideState, direction: SortDirection) {
+        const slicedUpdates = Object.entries(updates)
             .filter(([ , amount ]) => Number(amount) > 0)
             .sort(sortOrders(direction))
-            .reduce((obj, [price, amount]) => {
-                return {
-                    ...obj,
-                    [price]: amount
-                }
-            }, {});
+            .slice(0, 15)
+
+        return slicedUpdates.reduce((fullUpdate, [ price, amount ]) => ({ ...fullUpdate, [price]: amount }), {})
     }
 
     handleData(updateString: string) {
@@ -74,13 +75,13 @@ class App extends React.Component<IAppState, any> {
             // a queue might work better, and then every `n` milliseconds process the queue
             this.setState({
                 currentTime: new Date().getTime(),
-                sell: this.filterUpdates(sellUpdate, 'desc'),
-                buy: this.filterUpdates(buyUpdate, 'asc')
+                sell: this.filterUpdates(sellUpdate, 'desc'),//(this.state.sell),
+                buy: this.filterUpdates(buyUpdate, 'asc'),//(this.state.buy)
             })
 
         } else if (data.type === 'snapshot') {
             // Initial state of the L2Channel, only first 50 records
-            const reducer = (updates: SnapshotChange[]) => updates.slice(0, 50).reduce((total, [ price, amount ]) => {
+            const reducer = (updates: SnapshotChange[]) => updates.slice(0, 15).reduce((total, [ price, amount ]) => {
                 return {
                     ...total,
                     [price]: amount
@@ -90,6 +91,8 @@ class App extends React.Component<IAppState, any> {
             const { asks, bids } = data as CoinbaseSnapshot;
             const sell = reducer(asks)
             const buy = reducer(bids)
+
+            console.log('buy', buy);
 
             this.setState({
                 sell,
@@ -121,8 +124,10 @@ class App extends React.Component<IAppState, any> {
     }
 
     render() {
-        const firstSell = Object.keys(this.state.sell)[0] || 0;
-        const firstBuy = Object.keys(this.state.buy)[0] || 0;
+        const { sell, buy } = this.state;
+        console.log('sell', sell)
+        const [ , firstSell = 0 ] = Object.keys(sell)
+        const [ , firstBuy = 0 ] = Object.keys(buy)
         const difference = Number(firstSell) - Number(firstBuy)
         const midpointPrice = Number(firstSell) + (difference / 2);
 
@@ -143,8 +148,10 @@ class App extends React.Component<IAppState, any> {
                     <Row>
                         <Col sm='12'>
                             <h2>Midpoint</h2>
-                            <hr />
                             { midpointPrice.toLocaleString(window.navigator.language, { style: 'currency', currency: 'USD' }) }
+                            <hr />
+                            <h4>Difference</h4>
+                            { difference.toLocaleString(window.navigator.language, { style: 'currency', currency: 'USD' }) }
                         </Col>
                     </Row>
                     <Row>
