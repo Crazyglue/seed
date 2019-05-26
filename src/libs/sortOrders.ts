@@ -1,11 +1,7 @@
-import { SnapshotChange } from "../models/coinbase";
+import { Update } from "../models/seed";
 
 export type SortDirection = 'asc' | 'desc';
 
-export default (order: SortDirection) => ([ priceA ]: SnapshotChange, [ priceB ]: SnapshotChange): number => {
-    const directionFactor = order === 'asc' ? -1 : 1;
-    const numA = Number(priceA);
-    const numB = Number(priceB);
-    return (numA - numB) * directionFactor;
+export default (order: SortDirection) => ([ priceA ]: Update, [ priceB ]: Update): number => {
+    return (priceA - priceB) * (order === 'asc' ? -1 : 1);
 }
-

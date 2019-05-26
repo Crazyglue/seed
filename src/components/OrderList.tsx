@@ -1,9 +1,10 @@
 import React from 'react';
 import { Table } from 'react-bootstrap';
-import { SnapshotChange } from '../models/coinbase';
+import { Update } from '../models/seed';
+import toCurrency from '../libs/toCurrency';
 
 interface IOrderProps {
-    orders: SnapshotChange[];
+    orders: Update[];
 }
 
 function OrderList(props: IOrderProps) {
@@ -12,7 +13,7 @@ function OrderList(props: IOrderProps) {
     const orderList = orders.map(([ price, amount ]) => {
         return (
             <tr key={price}>
-                <td>{Number(price).toLocaleString(window.navigator.language, { style: 'currency', currency: 'USD' })}</td>
+                <td>{toCurrency(price)}</td>
                 <td>{amount}</td>
             </tr>
         );

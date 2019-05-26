@@ -1,8 +1,9 @@
-import { CoinbaseUpdate, SnapshotChange, Change } from "../models/coinbase";
+import { CoinbaseUpdate, Change } from "../models/coinbase";
+import { Update } from "../models/seed";
 
 interface ParsedL2Update {
-    buy: SnapshotChange[],
-    sell: SnapshotChange[]
+    buy: Update[],
+    sell: Update[]
 }
 
 export default ({ changes }: CoinbaseUpdate): ParsedL2Update => {
@@ -11,7 +12,7 @@ export default ({ changes }: CoinbaseUpdate): ParsedL2Update => {
             ...update,
             [side]: [
                 ...update[side],
-                [ price, size ]
+                [ Number(price), Number(size) ]
             ]
         }
     }, { buy: [], sell: [] })

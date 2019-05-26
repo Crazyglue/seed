@@ -5,17 +5,20 @@ import { Row, Col } from 'react-bootstrap';
 import "./App.css";
 import OrderList from './components/OrderList';
 import parseL2Update from './libs/parseL2Update';
-import { CoinbaseUpdate, CoinbaseBase, CoinbaseSnapshot, SnapshotChange } from "./models/coinbase";
-import sortOrders, { SortDirection } from "./libs/sortOrders";
+import { CoinbaseUpdate, CoinbaseBase, CoinbaseSnapshot, Side } from "./models/coinbase";
+import sortOrders from "./libs/sortOrders";
+import { Update } from "./models/seed";
+import toCurrency from './libs/toCurrency';
 
 interface ExchangeData {
-    sell: SnapshotChange[],
-    buy: SnapshotChange[],
+    sell: Update[],
+    buy: Update[],
 }
 
 interface IAppState extends ExchangeData {
     lastUpdate: Date;
-    currentTime: Date
+    currentTime: Date;
+    lastSalePrice: number;
 }
 
 class App extends React.Component<IAppState, any> {
@@ -27,65 +30,54 @@ class App extends React.Component<IAppState, any> {
         this.state = {
             sell: [],
             buy: [],
-            lastUpdate: new Date().getTime(),
-            currentTime: new Date().getTime()
+            lastSalePrice: 0
         }
     }
 
-    shouldComponentUpdate() {
-        const shouldUpdate = this.state.currentTime - this.state.lastUpdate >= 100;
+    filterUpdates(previousUpdates: Update[], updates: Update[], side: Side): Update[] {
+        const direction = side === 'sell' ? 'desc' : 'asc';
+        return updates.reduce((allUpdates, [ price, amount ]) => {
+            const previousIndex = previousUpdates.findIndex(([ existingPrice ]) => existingPrice === price)
 
-        if (shouldUpdate) {
-            this.setState({
-                lastUpdate: this.state.currentTime
-            })
-        }
+            if (previousIndex !== -1) { // Replace existing tuple
+                allUpdates.splice(previousIndex, 1, [ price, amount ])
+            } else { // Append tuple
+                allUpdates.push([ price, amount ])
+            }
 
-        return shouldUpdate
-    }
-    filterUpdates(updates: SnapshotChange[], direction: SortDirection) {
-        return updates.filter(([ , amount ]) => Number(amount) > 0)
+            return allUpdates;
+        }, previousUpdates)
+            .filter(([ , amount ]: Update) => amount > 0)
             .sort(sortOrders(direction))
             .slice(0, 25)
-    }
-
-    replaceExisting (existingUpdates: SnapshotChange[], [ amount, price ]: SnapshotChange): SnapshotChange[] {
-        // Delete the existing update-amount if the next one sets it
-        const previousIndex = existingUpdates.findIndex(([ existingAmount ]) => existingAmount === amount)
-        if (previousIndex > -1) {
-            existingUpdates.splice(previousIndex, 1)
-        }
-
-        // Insert the next update into the array
-        const insertIndex = existingUpdates.findIndex(([ existingAmount ]) => Number(existingAmount) > Number(amount));
-        if (insertIndex > -1) {
-            existingUpdates.splice(insertIndex, 0, [amount, price]);
-        }
-
-        return existingUpdates
     }
 
     handleData(updateString: string) {
         const data: CoinbaseBase = JSON.parse(updateString)
         if (data.type === 'error') {
-            console.log('error', data)
+            alert('There was an error' + data);
         } else if (data.type === 'l2update') {
             const update = parseL2Update(data as CoinbaseUpdate);
 
+            const sell = this.filterUpdates(this.state.sell, update.sell, 'sell');
+            const buy = this.filterUpdates(this.state.buy, update.buy, 'buy');
+
             // TODO: Decrement amounts in `buy` from all the latest sales
             this.setState({
-                currentTime: new Date().getTime(),
-                sell: this.filterUpdates(update.sell.reduce(this.replaceExisting, [ ...this.state.sell ]), 'desc'),
-                buy: this.filterUpdates(update.buy.reduce(this.replaceExisting, [ ...this.state.buy ]), 'asc')
+                sell,
+                buy
             })
 
         } else if (data.type === 'snapshot') {
             const { asks, bids } = data as CoinbaseSnapshot;
 
+            // Convert the asks/bids to an Update[]
+            const convertedAsks: Update[] = asks.map(([ price, amount ]) => [ Number(price), Number(amount) ])
+            const convertedBids: Update[] = bids.map(([ price, amount ]) => [ Number(price), Number(amount) ])
+
             this.setState({
-                sell: this.filterUpdates(asks, 'desc'),
-                buy: this.filterUpdates(bids, 'asc'),
-                currentTime: new Date().getTime()
+                sell: this.filterUpdates([], convertedAsks, 'sell'),
+                buy: this.filterUpdates([], convertedBids, 'buy')
             })
         }
     }
@@ -113,13 +105,13 @@ class App extends React.Component<IAppState, any> {
 
     render() {
         const { sell, buy }: ExchangeData = this.state as IAppState;
-        const [ firstSell ] = sell[0] || [ , '0']
-        const [ firstBuy ] = buy[0] || [ , '0']
-        const difference = Number(firstSell) - Number(firstBuy)
-        const midpointPrice = Number(firstBuy) + (difference / 2);
+        const [ firstSell ] = sell[0] || [ 0 ]
+        const [ firstBuy ] = buy[0] || [ 0 ]
+        const difference = firstSell - firstBuy
+        const midpointPrice = firstBuy + (difference / 2);
 
-        // TODO: Handle this better
-        document.title = 'BTC-USD ' + Number(firstSell).toLocaleString(window.navigator.language, { style: 'currency', currency: 'USD' })
+        // TODO: Use hooks!
+        document.title = 'BTC-USD ' + toCurrency(firstSell);
 
         return (
             <Row className="App">
@@ -138,10 +130,10 @@ class App extends React.Component<IAppState, any> {
                     <Row>
                         <Col sm='12'>
                             <h2>Midpoint</h2>
-                            { midpointPrice.toLocaleString(window.navigator.language, { style: 'currency', currency: 'USD' }) }
+                            { toCurrency(midpointPrice) }
                             <hr />
                             <h4>Spread</h4>
-                            { difference.toLocaleString(window.navigator.language, { style: 'currency', currency: 'USD' }) }
+                            { toCurrency(difference) }
                         </Col>
                     </Row>
                     <Row>
