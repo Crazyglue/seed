@@ -10,7 +10,7 @@ interface IOrderProps {
 function OrderList(props: IOrderProps) {
     const { orders = [] } = props;
 
-    const orderList = orders.map(([ price, amount ]) => {
+    const orderList = orders.slice(0, 15).map(([ price, amount ]) => {
         return (
             <tr key={price}>
                 <td>{toCurrency(price)}</td>
