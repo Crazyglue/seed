@@ -18,7 +18,6 @@ interface ExchangeData {
 interface IAppState extends ExchangeData {
     lastUpdate: Date;
     currentTime: Date;
-    lastSalePrice: number;
 }
 
 class App extends React.Component<IAppState, any> {
@@ -29,12 +28,11 @@ class App extends React.Component<IAppState, any> {
 
         this.state = {
             sell: [],
-            buy: [],
-            lastSalePrice: 0
+            buy: []
         }
     }
 
-    filterUpdates(previousUpdates: Update[], updates: Update[], side: Side): Update[] {
+    mergeUpdates(previousUpdates: Update[], updates: Update[], side: Side): Update[] {
         const direction = side === 'sell' ? 'desc' : 'asc';
         return updates.reduce((allUpdates, [ price, amount ]) => {
             const previousIndex = previousUpdates.findIndex(([ existingPrice ]) => existingPrice === price)
@@ -59,8 +57,8 @@ class App extends React.Component<IAppState, any> {
         } else if (data.type === 'l2update') {
             const update = parseL2Update(data as CoinbaseUpdate);
 
-            const sell = this.filterUpdates(this.state.sell, update.sell, 'sell');
-            const buy = this.filterUpdates(this.state.buy, update.buy, 'buy');
+            const sell = this.mergeUpdates(this.state.sell, update.sell, 'sell');
+            const buy = this.mergeUpdates(this.state.buy, update.buy, 'buy');
 
             // TODO: Decrement amounts in `buy` from all the latest sales
             this.setState({
@@ -76,8 +74,8 @@ class App extends React.Component<IAppState, any> {
             const convertedBids: Update[] = bids.map(([ price, amount ]) => [ Number(price), Number(amount) ])
 
             this.setState({
-                sell: this.filterUpdates([], convertedAsks, 'sell'),
-                buy: this.filterUpdates([], convertedBids, 'buy')
+                sell: this.mergeUpdates([], convertedAsks, 'sell'),
+                buy: this.mergeUpdates([], convertedBids, 'buy')
             })
         }
     }
